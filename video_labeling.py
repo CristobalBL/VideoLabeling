@@ -1,5 +1,6 @@
 import sys
 import os
+import shutil
 import cv2 as cv
 import csv
 import pandas as pd
@@ -72,20 +73,25 @@ class MainWindow(QMainWindow):
         add_label_button_action.triggered.connect(self.onAddItemButtonClick)
 
         save_labels_button_action = QAction(QIcon("blue-document-excel-csv.png"), "&Save Labels", self)
-        save_labels_button_action.setStatusTip("Save Ñabels Button")
+        save_labels_button_action.setStatusTip("Save Labels Button")
         save_labels_button_action.triggered.connect(self.onSaveLabelsButtonClick)
+
+        gen_yolo_data_button_action = QAction(QIcon("database-export.png"), "&Gen Yolo Dataset", self)
+        gen_yolo_data_button_action.setStatusTip("Generate Yolo Dataset")
+        gen_yolo_data_button_action.triggered.connect(self.onGenYoloDataButtonClick)
 
         menu = self.menuBar()
         file_menu = menu.addMenu("&File")
         file_menu.setCursor(Qt.PointingHandCursor)
         file_menu.addAction(load_video_button_action)
         file_menu.addAction(load_data_button_action)
-        file_menu.addAction(save_data_button_action)
 
         options_menu = menu.addMenu("&Options")
         options_menu.setCursor(Qt.PointingHandCursor)
         options_menu.addAction(add_label_button_action)
         options_menu.addAction(save_labels_button_action)
+        options_menu.addAction(save_data_button_action)
+        options_menu.addAction(gen_yolo_data_button_action)
 
         main_hor_layout = QVBoxLayout()
 
@@ -378,6 +384,52 @@ class MainWindow(QMainWindow):
 
     def onSaveLabelsButtonClick(self):
         self.saveLabels()
+
+    def buildYoloDirTree(self, base_dir, dataset_name):
+        def make_dir(dir_path):
+            try:
+                os.mkdir(dir_path)
+            except OSError as error:
+                print(error)
+
+        def create_dataset_subdirs(parent_dir):
+        
+            train_dir = os.path.join(parent_dir, "train")
+            val_dir = os.path.join(parent_dir, "val")
+            test_dir = os.path.join(parent_dir, "test")
+
+            make_dir(train_dir)
+            make_dir(val_dir)
+            make_dir(test_dir)
+
+            return train_dir, val_dir, test_dir
+
+        # Create Directory Tree
+        # TODO Get base dir name from user input
+        make_dir(base_dir)
+
+        dataset_dir = os.path.join(base_dir, dataset_name)
+        make_dir(dataset_dir)
+
+        images_dir = os.path.join(dataset_dir, "images")
+        labels_dir = os.path.join(dataset_dir, "labels")
+
+        make_dir(images_dir)
+        make_dir(labels_dir)
+
+        images_train_dir, images_val_dir, images_test_dir = create_dataset_subdirs(images_dir)
+        labels_train_dir, labels_val_dir, labels_test_dir = create_dataset_subdirs(labels_dir)
+
+        return images_train_dir, images_val_dir, images_test_dir, labels_train_dir, labels_val_dir, labels_test_dir
+
+    def onGenYoloDataButtonClick(self):
+        print("Generate Yolo Dataset")
+
+        base_dir = "./custom_dataset"
+        dataset_name = "minesign_dataset"
+        img_train_dir, img_val_dir, img_test_dir, lbl_train_dir, lbl_val_dir, lbl_test_dir =  self.buildYoloDirTree(base_dir, dataset_name)
+        
+        shutil.make_archive(dataset_name, 'zip', base_dir)
 
     def saveLabels(self):
 

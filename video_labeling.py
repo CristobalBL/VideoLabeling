@@ -429,7 +429,41 @@ class MainWindow(QMainWindow):
         dataset_name = "minesign_dataset"
         img_train_dir, img_val_dir, img_test_dir, lbl_train_dir, lbl_val_dir, lbl_test_dir =  self.buildYoloDirTree(base_dir, dataset_name)
         
+        # Load all videos of dataset
+        video_file_names = [bbox_tag.file_name for bbox_tag in self.tags_dataset.bbox_tags]
+
+        # Build dictionary of frames and files
+        frames_dict = dict.fromkeys(video_file_names)
+        for bbox_tag in self.tags_dataset.bbox_tags:
+            file_name = bbox_tag.file_name
+            frame_id = bbox_tag.frame_id
+
+            if frames_dict[file_name] is None:
+                frames_dict[file_name] = [frame_id]
+            elif frame_id not in frames_dict[file_name]:
+                frames_dict[file_name].append(frame_id)
+        
+        frame_count = 0
+        for file_name in frames_dict:
+            cap = cv.VideoCapture(file_name)
+
+            if cap:
+                for frame_id in frames_dict[file_name]:
+                
+                    # Set frame position
+                    cap.set(cv.CAP_PROP_POS_FRAMES, frame_id)
+
+                    # Get image
+                    retval, image = cap.read()
+                    if retval:
+                        cv.imwrite(os.path.join(img_train_dir, f'train{frame_count}.jpg'), image)
+                    frame_count += 1
+            
+
+        # Create .zip with dataset
         shutil.make_archive(dataset_name, 'zip', base_dir)
+
+        # Remove dataset folder
 
     def saveLabels(self):
 

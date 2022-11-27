@@ -433,22 +433,33 @@ class MainWindow(QMainWindow):
         video_file_names = [bbox_tag.file_name for bbox_tag in self.tags_dataset.bbox_tags]
 
         # Build dictionary of frames and files
-        frames_dict = dict.fromkeys(video_file_names)
+        bboxes_dict = dict.fromkeys(video_file_names)
         for bbox_tag in self.tags_dataset.bbox_tags:
             file_name = bbox_tag.file_name
             frame_id = bbox_tag.frame_id
+            class_id = bbox_tag.tag.id
+            center_x = bbox_tag.rect.left()
+            center_y = bbox_tag.rect.top()
+            bbox_width = bbox_tag.rect.width()
+            bbox_height = bbox_tag.rect.height()
 
-            if frames_dict[file_name] is None:
-                frames_dict[file_name] = [frame_id]
-            elif frame_id not in frames_dict[file_name]:
-                frames_dict[file_name].append(frame_id)
-        
+            # class_id, center_x, center_y, bbox_width, bbox_height
+            bbox_tuple = (class_id, center_x, center_y, bbox_width, bbox_height)
+
+            if bboxes_dict[file_name] is None:
+                bboxes_dict[file_name] = { frame_id: [bbox_tuple]}
+            elif frame_id not in bboxes_dict[file_name]:
+                bboxes_dict[file_name][frame_id] = [bbox_tuple]  
+            elif bbox_tuple not in bboxes_dict[file_name][frame_id]:
+                    bboxes_dict[file_name][frame_id].append(bbox_tuple)
+                
         frame_count = 0
-        for file_name in frames_dict:
+        for file_name in bboxes_dict:
             cap = cv.VideoCapture(file_name)
 
             if cap:
-                for frame_id in frames_dict[file_name]:
+                
+                for frame_id in bboxes_dict[file_name]:
                 
                     # Set frame position
                     cap.set(cv.CAP_PROP_POS_FRAMES, frame_id)
@@ -457,8 +468,18 @@ class MainWindow(QMainWindow):
                     retval, image = cap.read()
                     if retval:
                         cv.imwrite(os.path.join(img_train_dir, f'train{frame_count}.jpg'), image)
+                    
+                    # Write bboxes 
+                    lines = ['# class_id center_x center_y bbox_width bbox_height']
+                    for bbox_tuple in bboxes_dict[file_name][frame_id]:
+                        lines.append(f'{bbox_tuple[0]} {bbox_tuple[1] / image.shape[1]:.6f} {bbox_tuple[2] / image.shape[0]:.6f} {bbox_tuple[3] / image.shape[1]:.6f} {bbox_tuple[4] / image.shape[0]:.6f}')
+                    with open(os.path.join(lbl_train_dir, f'train{frame_count}.txt'), 'w') as f:
+                        for line in lines:
+                            f.write(line)
+                            f.write('\n')
+                    
                     frame_count += 1
-            
+
 
         # Create .zip with dataset
         shutil.make_archive(dataset_name, 'zip', base_dir)
